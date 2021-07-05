@@ -1,1 +1,24 @@
-# 2021-shandong-healthy-treatmeat-top4
+# 山东省第二届数据应用创新创业大赛健康医疗赛道——top4水煮毛血旺方案分享
+
+# 运行环境
+- python==3.6
+- lightgbm==3.0.0
+- numpy==1.18.1
+- pandas==1.1.2
+- scikit-learn==0.22.1
+- torch==1.6.0
+
+# 整体方案
+- 本团队的方案主要包括gbdt和nn两种模型，其中gbdt采用lightgbm模型，手动提取时间序列特征，差分特征，统计特征等等。按照测试集要求的预测时间分步进行建模；nn采用seq2seq的模型结构，使用encoder和decoder对时间序列直接实现多步预测。
+- 最终的方案gbdt的效果更佳，单模A榜就能达到前五的成绩，所以在融合的时候仅仅把nn模型作为补充模型，补偿了lgb模型在预测后七天的短板，采用加权平均gbdt * 0.7+nn * 0.2的方式融合，达到了最后的成绩。
+
+# gbdt模型介绍
+- 本团队采用的gbdt模型为lightgbm，同时也对xgboost和catboost进行了尝试，效果都没有lightgbm好，所以只是用了lightgbm。
+- 建模部分，由于本赛题是一个时间序列的多步预测问题，我们尝试了单步累积预测Recursive Multi-step Forecast Strategy策略，单步分开预测Direct Multi-step Forecast Strategy策略，混合预测Direct-Recursive Hybrid Multi-step Forecast Strategies策略。由于测试集需要预测14天的数据，所以在累积预测和混合预测中，数据越往后，误差传递越大，效果比单步分开预测要差，所以最终选择了单步分开预测，对14天的预测数据分开进行建模。建模采用的基数据和提取特征的日期都是基于预测第一天的前一天进行建模。
+- 训练过程中采用k-fold交叉验证，并且每一次训练都先采用大学习率，然后在这个已经训练好的模型基础上，再通过小学习率进行微调，防止过拟合。
+
+# nn模型介绍
+- 本团队采用的nn模型为seq2seq模型，即encoder-decoder结构，编码器和解码器均采用双向lstm网络，在每一个time_step进入encoder后，把输出的中间结果与手动提取的特征结合在一起，放入decoder进行解码，最后把这些解码的输出通过全连接层得到最终的预测结果。
+- 所有数据特征以及标签都经过归一化处理，得到最后预测的结果都是在0到1的范围内，然后再逆归一化把结果及逆行还原。
+- 训练过程中为了防止过拟合，加入了一些训练技巧，比如热启动，余弦退火，SWA等等操作。
+- 也尝试过采用attention-decoder的结构，但是加入了attention以后，模型效果并没有得到提升，反而加长了模型训练的时间。
